@@ -1,216 +1,255 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Water pH Monitoring</title>
+  <meta charset="UTF-8">
+  <title>pH Monitoring Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon"></script>
   <style>
     body {
+      font-family: 'Segoe UI', sans-serif;
       margin: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: #0e0e1b;
+      padding: 0;
+      background-color: #121212;
       color: #fff;
     }
-    .container {
-      display: grid;
-      grid-template-columns: 1fr 300px;
-      gap: 30px;
-      padding: 40px;
-    }
-    h1 {
+
+    header {
+      background-color: #1f1f1f;
+      padding: 20px;
       text-align: center;
-      color: #fff;
     }
-    #chart-container {
-      background-color: #1a1a2f;
+
+    h1 {
+      margin: 0;
+      color: #8b5cf6;
+    }
+
+    .container {
       padding: 20px;
+    }
+
+    .chart-container {
+      background-color: #1e1e1e;
       border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      padding: 20px;
+      margin-bottom: 30px;
     }
-    #phChart {
-      max-height: 300px;
-    }
+
     .controls {
-      background-color: #1a1a2f;
-      padding: 20px;
-      border-radius: 12px;
       display: flex;
-      flex-direction: column;
+      flex-wrap: wrap;
       gap: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      margin-bottom: 20px;
     }
+
     input, button {
       padding: 10px;
-      font-size: 16px;
-      border-radius: 8px;
       border: none;
+      border-radius: 8px;
+      font-size: 14px;
     }
-    input {
-      background-color: #2a2a40;
-      color: #fff;
+
+    input[type="number"], input[type="email"], input[type="date"] {
+      width: 180px;
     }
+
     button {
-      background-color: #7c3aed;
+      background-color: #8b5cf6;
       color: white;
       cursor: pointer;
     }
-    button:hover {
-      background-color: #5b21b6;
-    }
+
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 20px;
-      background-color: #1a1a2f;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      background-color: #1e1e1e;
     }
+
     th, td {
-      padding: 12px;
-      text-align: center;
-      border-bottom: 1px solid #2c2c45;
+      padding: 10px;
+      border: 1px solid #333;
+      text-align: left;
+      color: #ccc;
     }
+
     th {
-      background-color: #2a2a40;
+      background-color: #2a2a2a;
     }
+
     #downloadBtn {
-      margin-top: 10px;
-      background-color: #10b981;
+      margin-top: 8px;
     }
   </style>
 </head>
 <body>
+  <header>
+    <h1>Water pH Monitoring Dashboard</h1>
+  </header>
 
-<h1>pH Monitoring Dashboard</h1>
-<div class="container">
-  <div>
-    <div id="chart-container">
-      <canvas id="phChart"></canvas>
+  <div class="container">
+    <div class="controls">
+      <input type="date" id="datePicker" />
+      <input type="number" id="minPH" placeholder="Enter Min pH" />
+      <input type="number" id="maxPH" placeholder="Enter Max pH" />
+      <input type="email" id="userEmail" placeholder="Enter your Email" />
+      <button onclick="setAlertTrigger()">Set Alert Trigger</button>
+      <button id="downloadBtn">Download CSV</button>
     </div>
+
+    <div class="chart-container">
+      <canvas id="phChart" height="100"></canvas>
+    </div>
+
+    <h3>Data Table</h3>
     <table id="dataTable">
       <thead>
-        <tr><th>Time</th><th>pH Value</th></tr>
+        <tr>
+          <th>Timestamp</th>
+          <th>pH Value</th>
+        </tr>
       </thead>
-      <tbody></tbody>
+      <tbody>
+      </tbody>
     </table>
-    <button id="downloadBtn">Download CSV</button>
   </div>
-  <div class="controls">
-    <input type="number" id="minPH" placeholder="Enter Min pH" />
-    <input type="number" id="maxPH" placeholder="Enter Max pH" />
-    <input type="email" id="userEmail" placeholder="Enter your Email" />
-    <button onclick="setAlertTrigger()">Set Alert Trigger</button>
-  </div>
-</div>
 
-<script>
-  const channelID = 2912207;
-  const emailServiceID = "service_ji1xqko";
-  const emailTemplateID = "template_mu4z8lm";
-  const emailUserID = "jqmWVf8o-pfvZWMen";
+  <script>
+    const channelID = "2454679";
+    const readAPIKey = "XVUYOT6PVZMN6YLS";
 
-  let minPH = null;
-  let maxPH = null;
-  let email = "";
+    let minPH = null;
+    let maxPH = null;
+    let email = "";
 
-  emailjs.init(emailUserID);
-
-  function setAlertTrigger() {
-    minPH = parseFloat(document.getElementById("minPH").value);
-    maxPH = parseFloat(document.getElementById("maxPH").value);
-    email = document.getElementById("userEmail").value;
-    alert("Alert trigger set!");
-  }
-
-  const ctx = document.getElementById("phChart").getContext("2d");
-  const phChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'pH Level',
-        borderColor: '#8b5cf6',
-        backgroundColor: 'rgba(139, 92, 246, 0.2)',
-        data: [],
-        fill: true,
-        tension: 0.4,
-      }]
-    },
-    options: {
-      scales: {
-        x: { title: { display: true, text: 'Time', color: '#fff' }, ticks: { color: '#ccc' } },
-        y: { title: { display: true, text: 'pH Level', color: '#fff' }, min: 0, max: 14, ticks: { color: '#ccc' } }
+    const ctx = document.getElementById("phChart").getContext("2d");
+    const phChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'pH Level',
+          borderColor: '#8b5cf6',
+          backgroundColor: 'rgba(139, 92, 246, 0.2)',
+          data: [],
+          fill: true,
+          tension: 0.4,
+        }]
       },
-      plugins: {
-        legend: {
-          labels: {
-            color: '#fff'
+      options: {
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              tooltipFormat: 'HH:mm',
+              unit: 'hour',
+              displayFormats: { hour: 'HH:mm' }
+            },
+            title: {
+              display: true,
+              text: 'Time',
+              color: '#fff'
+            },
+            ticks: {
+              color: '#ccc'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'pH Level',
+              color: '#fff'
+            },
+            min: 0,
+            max: 14,
+            ticks: {
+              color: '#ccc'
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            labels: {
+              color: '#fff'
+            }
           }
         }
       }
-    }
-  });
-
-  async function fetchData() {
-    // Modify the URL to get all available data (instead of just the last 20 entries)
-    const url = `https://api.thingspeak.com/channels/${channelID}/fields/1.json?results=9999`;  // Increase the results limit if needed
-    const response = await fetch(url);
-    const data = await response.json();
-    const feeds = data.feeds;
-
-    const times = feeds.map(feed => feed.created_at.split("T")[1].split("Z")[0]);
-    const values = feeds.map(feed => parseFloat(feed.field1));
-
-    phChart.data.labels = times;
-    phChart.data.datasets[0].data = values;
-    phChart.update();
-
-    // Populate the table with all available data
-    const tableBody = document.querySelector("#dataTable tbody");
-    tableBody.innerHTML = "";
-    feeds.forEach(feed => {
-      const row = `<tr><td>${feed.created_at}</td><td>${feed.field1}</td></tr>`;
-      tableBody.innerHTML += row;
     });
 
-    // Check if we need to send an alert based on the latest pH value
-    const latestPH = parseFloat(feeds[feeds.length - 1].field1);
-    if (minPH !== null && maxPH !== null && email !== "") {
-      if (latestPH < minPH || latestPH > maxPH) {
-        sendEmailAlert(latestPH);
+    async function fetchData() {
+      const url = `https://api.thingspeak.com/channels/${channelID}/fields/1.json?results=9999`;
+      const response = await fetch(url);
+      const data = await response.json();
+      const feeds = data.feeds;
+
+      const selectedDate = document.getElementById("datePicker").value;
+      const filteredFeeds = selectedDate
+        ? feeds.filter(feed => feed.created_at.startsWith(selectedDate))
+        : feeds;
+
+      const times = filteredFeeds.map(feed => feed.created_at);
+      const values = filteredFeeds.map(feed => parseFloat(feed.field1));
+
+      phChart.data.labels = times;
+      phChart.data.datasets[0].data = values;
+      phChart.update();
+
+      // Update table
+      const tableBody = document.querySelector("#dataTable tbody");
+      tableBody.innerHTML = "";
+      filteredFeeds.forEach(feed => {
+        const row = `<tr><td>${feed.created_at}</td><td>${feed.field1}</td></tr>`;
+        tableBody.innerHTML += row;
+      });
+
+      // Check alert
+      const latestPH = parseFloat(feeds[feeds.length - 1].field1);
+      if (minPH !== null && maxPH !== null && email !== "") {
+        if (latestPH < minPH || latestPH > maxPH) {
+          sendEmailAlert(latestPH);
+        }
       }
     }
-  }
 
+    function setAlertTrigger() {
+      minPH = parseFloat(document.getElementById("minPH").value);
+      maxPH = parseFloat(document.getElementById("maxPH").value);
+      email = document.getElementById("userEmail").value;
 
-  function sendEmailAlert(currentPH) {
-    emailjs.send(emailServiceID, emailTemplateID, {
-      ph_value: currentPH,
-      email: email,
-      min: minPH,
-      max: maxPH
-    }).then(() => {
-      alert("Email alert sent!");
-    }, (error) => {
-      console.error("Email failed", error);
+      alert("Alert trigger set!");
+    }
+
+    function sendEmailAlert(value) {
+      console.log(`Email alert to ${email}: pH level is ${value}`);
+      // Implement backend email service if needed
+    }
+
+    // Download CSV
+    document.getElementById("downloadBtn").addEventListener("click", () => {
+      const rows = [["Timestamp", "pH Value"]];
+      const tableRows = document.querySelectorAll("#dataTable tbody tr");
+      tableRows.forEach(row => {
+        const cols = row.querySelectorAll("td");
+        rows.push([cols[0].innerText, cols[1].innerText]);
+      });
+
+      let csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "ph_data.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     });
-  }
 
-  document.getElementById("downloadBtn").addEventListener("click", () => {
-    const rows = Array.from(document.querySelectorAll("table tr"));
-    const csv = rows.map(row => Array.from(row.children).map(cell => cell.innerText).join(",")).join("\n");
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'ph_data.csv';
-    link.click();
-  });
+    document.getElementById("datePicker").addEventListener("change", fetchData);
 
-  setInterval(fetchData, 15000);
-</script>
-
+    // Refresh data every 15 seconds
+    setInterval(fetchData, 15000);
+    fetchData();
+  </script>
 </body>
 </html>
