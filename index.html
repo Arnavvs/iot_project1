@@ -4,56 +4,198 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>pH Monitoring Dashboard</title>
-  <link rel="stylesheet" href="style.css"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.emailjs.com/dist/email.min.js"></script>
-<script>
-  window.onload = () => {
-    emailjs.init("jqmWVf8o-pfvZWMen"); // Replace with your actual public key
-  };
-</script>
-
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f5f7fa;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #4a90e2;
+    }
+    input, button {
+      padding: 10px;
+      margin: 10px 5px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    button {
+      background-color: #4a90e2;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #357ABD;
+    }
+    canvas {
+      max-width: 100%;
+      margin: 30px 0;
+    }
+    .ph-data {
+      margin-top: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .ph-data table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .ph-data th, .ph-data td {
+      padding: 8px;
+      border: 1px solid #ddd;
+    }
+    .ph-data th {
+      background-color: #f0f0f0;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
-    <h1>pH Monitoring Dashboard</h1>
+    <h1>IoT pH Monitoring Dashboard</h1>
 
-    <div class="controls">
-      <label for="datePicker">Select Date:</label>
-      <input type="date" id="datePicker"/>
+    <label>Email: <input type="email" id="email" placeholder="you@example.com" required></label>
+    <label>Min pH: <input type="number" id="minPH" step="0.01"></label>
+    <label>Max pH: <input type="number" id="maxPH" step="0.01"></label>
+    <button onclick="setTrigger()">Set Trigger</button>
+    <button onclick="exportCSV()">Export CSV</button>
 
-      <label for="minPH">Min pH:</label>
-      <input type="number" step="0.1" id="minPH" placeholder="e.g. 6.5"/>
+    <canvas id="phChart"></canvas>
 
-      <label for="maxPH">Max pH:</label>
-      <input type="number" step="0.1" id="maxPH" placeholder="e.g. 8.5"/>
-
-      <label for="userEmail">Alert Email:</label>
-      <input type="email" id="userEmail" placeholder="your@email.com"/>
-
-      <button onclick="setAlertTrigger()">Set Alert</button>
-      <button id="downloadBtn">Download CSV</button>
-    </div>
-
-    <div class="chart-container">
-      <canvas id="phChart"></canvas>
-    </div>
-
-    <div class="table-container">
-      <table id="dataTable">
+    <div class="ph-data">
+      <h3>All Time pH Readings</h3>
+      <table id="phTable">
         <thead>
-          <tr>
-            <th>Timestamp</th>
-            <th>pH Value</th>
-          </tr>
+          <tr><th>Date</th><th>pH Value</th></tr>
         </thead>
-        <tbody>
-          <!-- Data rows will be inserted here -->
-        </tbody>
+        <tbody></tbody>
       </table>
     </div>
   </div>
 
-  <script src="script.js"></script>
+  <script>
+    const channelID = 2912207;
+    const readAPIKey = "0UN888059PJ9KW30";
+    let minPH = null;
+    let maxPH = null;
+    let email = "";
+    let phData = [];
+
+    emailjs.init("jqmWVf8o-pfvZWMen");
+
+    async function fetchData() {
+      const res = await fetch(`https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${readAPIKey}&results=8000`);
+      const data = await res.json();
+      const feeds = data.feeds;
+      phData = feeds.map(feed => ({
+        time: feed.created_at,
+        value: parseFloat(feed.field1)
+      })).filter(d => !isNaN(d.value));
+
+      updateChart(phData);
+      updateTable(phData);
+      checkAndSendAlert(phData[phData.length - 1]?.value);
+    }
+
+    function setTrigger() {
+      minPH = parseFloat(document.getElementById('minPH').value);
+      maxPH = parseFloat(document.getElementById('maxPH').value);
+      email = document.getElementById('email').value;
+
+      if (!email || isNaN(minPH) || isNaN(maxPH)) {
+        alert("Please fill all values correctly.");
+        return;
+      }
+      alert("Email trigger set!");
+    }
+
+    function sendEmailAlert(value) {
+      if (!email) return;
+      emailjs.send("service_ji1xqko", "template_mu4z8lm", {
+        to_email: email,
+        ph_value: value,
+        min: minPH,
+        max: maxPH
+      }).then(() => {
+        console.log("Email sent!");
+      }).catch(console.error);
+    }
+
+    function checkAndSendAlert(value) {
+      if (email && minPH != null && maxPH != null && (value < minPH || value > maxPH)) {
+        sendEmailAlert(value);
+      }
+    }
+
+    function updateChart(data) {
+      const ctx = document.getElementById("phChart").getContext("2d");
+      const labels = data.map(d => new Date(d.time).toLocaleString());
+      const values = data.map(d => d.value);
+
+      if (window.myChart) window.myChart.destroy();
+      window.myChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [{
+            label: "pH Value",
+            data: values,
+            fill: false,
+            borderColor: "#4a90e2",
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { display: true, title: { display: true, text: "Time" }},
+            y: { title: { display: true, text: "pH" }}
+          }
+        }
+      });
+    }
+
+    function updateTable(data) {
+      const tbody = document.querySelector("#phTable tbody");
+      tbody.innerHTML = "";
+      data.reverse().forEach(d => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${new Date(d.time).toLocaleString()}</td><td>${d.value}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function exportCSV() {
+      let csv = "Time,pH Value\n";
+      phData.forEach(d => {
+        csv += `${d.time},${d.value}\n`;
+      });
+
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "ph_data.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    setInterval(fetchData, 15000); // Refresh every 15 seconds
+    fetchData(); // Initial load
+  </script>
 </body>
 </html>
