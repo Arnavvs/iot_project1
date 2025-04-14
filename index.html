@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>pH Monitoring Dashboard</title>
+  <link rel="stylesheet" href="style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.emailjs.com/dist/email.min.js"></script>
+<script>
+  window.onload = () => {
+    emailjs.init("jqmWVf8o-pfvZWMen"); // Replace with your actual public key
+  };
+</script>
+
+</head>
+<body>
+  <div class="container">
+    <h1>pH Monitoring Dashboard</h1>
+
+    <div class="controls">
+      <label for="datePicker">Select Date:</label>
+      <input type="date" id="datePicker"/>
+
+      <label for="minPH">Min pH:</label>
+      <input type="number" step="0.1" id="minPH" placeholder="e.g. 6.5"/>
+
+      <label for="maxPH">Max pH:</label>
+      <input type="number" step="0.1" id="maxPH" placeholder="e.g. 8.5"/>
+
+      <label for="userEmail">Alert Email:</label>
+      <input type="email" id="userEmail" placeholder="your@email.com"/>
+
+      <button onclick="setAlertTrigger()">Set Alert</button>
+      <button id="downloadBtn">Download CSV</button>
+    </div>
+
+    <div class="chart-container">
+      <canvas id="phChart"></canvas>
+    </div>
+
+    <div class="table-container">
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>pH Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Data rows will be inserted here -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
